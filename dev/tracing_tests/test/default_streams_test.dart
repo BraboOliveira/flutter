@@ -12,7 +12,7 @@ import 'package:vm_service/vm_service_io.dart';
 // for "Dart", "Embedder", and "GC" recorded from startup.
 
 void main() {
-  VmService vmService;
+  late VmService vmService;
 
   setUpAll(() async {
     final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
@@ -22,12 +22,17 @@ void main() {
     }
 
     vmService = await vmServiceConnectUri(
-      'ws://localhost:${info.serverUri.port}${info.serverUri.path}ws',
+      'ws://localhost:${info.serverUri!.port}${info.serverUri!.path}ws',
     );
   });
 
+<<<<<<< HEAD
   tearDownAll(() {
     vmService.dispose();
+=======
+  tearDownAll(() async {
+    await vmService.dispose();
+>>>>>>> 77d935af4db863f6abd0b9c31c7e6df2a13de57b
   });
 
   test('Image cache tracing', () async {
@@ -37,5 +42,5 @@ void main() {
       'Embedder',
       'GC',
     ]));
-  }, skip: isBrowser); // uses dart:isolate and io
+  }, skip: isBrowser); // [intended] uses dart:isolate and io.
 }

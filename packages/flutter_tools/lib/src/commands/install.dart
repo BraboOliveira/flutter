@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// @dart = 2.8
+
 import '../android/android_device.dart';
 import '../application_package.dart';
 import '../base/common.dart';
 import '../base/io.dart';
 import '../device.dart';
-import '../globals.dart' as globals;
+import '../globals_null_migrated.dart' as globals;
 import '../runner/flutter_command.dart';
 
 class InstallCommand extends FlutterCommand with DeviceBasedDevelopmentArtifacts {
@@ -27,6 +29,9 @@ class InstallCommand extends FlutterCommand with DeviceBasedDevelopmentArtifacts
 
   @override
   final String description = 'Install a Flutter app on an attached device.';
+
+  @override
+  final String category = FlutterCommandCategory.tools;
 
   Device device;
 

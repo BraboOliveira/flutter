@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// @dart = 2.8
+
 import '../android/android_workflow.dart';
 import '../base/common.dart';
-import '../globals.dart' as globals;
+import '../globals_null_migrated.dart' as globals;
 import '../runner/flutter_command.dart';
 
 class DoctorCommand extends FlutterCommand {
@@ -28,6 +30,9 @@ class DoctorCommand extends FlutterCommand {
 
   @override
   final String description = 'Show information about the installed tooling.';
+
+  @override
+  final String category = FlutterCommandCategory.sdk;
 
   @override
   Future<FlutterCommandResult> runCommand() async {

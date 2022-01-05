@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// @dart = 2.8
+
 import 'dart:async';
 
 import 'package:async/async.dart';
@@ -18,17 +20,19 @@ import '../base/utils.dart';
 import '../build_info.dart';
 import '../convert.dart';
 import '../device.dart';
+import '../device_port_forwarder.dart';
 import '../emulator.dart';
 import '../features.dart';
-import '../globals.dart' as globals;
+import '../globals_null_migrated.dart' as globals;
 import '../project.dart';
 import '../resident_runner.dart';
 import '../run_cold.dart';
 import '../run_hot.dart';
 import '../runner/flutter_command.dart';
+import '../vmservice.dart';
 import '../web/web_runner.dart';
 
-const String protocolVersion = '0.6.0';
+const String protocolVersion = '0.6.1';
 
 /// A server process command. This command will start up a long-lived server.
 /// It reads JSON-RPC based commands from stdin, executes them, and returns
@@ -44,6 +48,9 @@ class DaemonCommand extends FlutterCommand {
 
   @override
   final String description = 'Run a persistent, JSON-RPC based server to communicate with devices.';
+
+  @override
+  final String category = FlutterCommandCategory.tools;
 
   @override
   final bool hidden;
@@ -300,6 +307,7 @@ class DaemonDomain extends Domain {
         if (message.level == 'status') {
           // We use `print()` here instead of `stdout.writeln()` in order to
           // capture the print output for testing.
+          // ignore: avoid_print
           print(message.message);
         } else if (message.level == 'error') {
           globals.stdio.stderrWrite('${message.message}\n');
@@ -388,6 +396,9 @@ class DaemonDomain extends Domain {
       if (featureFlags.isFuchsiaEnabled && flutterProject.fuchsia.existsSync()) {
         result.add('fuchsia');
       }
+      if (featureFlags.areCustomDevicesEnabled) {
+        result.add('custom');
+      }
       return <String, Object>{
         'platforms': result,
       };
@@ -409,7 +420,7 @@ class DaemonDomain extends Domain {
   }
 }
 
-typedef _RunOrAttach = Future<void> Function({
+typedef RunOrAttach = Future<void> Function({
   Completer<DebugConnectionInfo> connectionInfoCompleter,
   Completer<void> appStartedCompleter,
 });
@@ -425,7 +436,7 @@ class AppDomain extends Domain {
     registerHandler('detach', detach);
   }
 
-  static final Uuid _uuidGenerator = Uuid();
+  static const Uuid _uuidGenerator = Uuid();
 
   static String _getNewAppId() => _uuidGenerator.v4();
 
@@ -451,7 +462,7 @@ class AppDomain extends Domain {
   }) async {
     if (!await device.supportsRuntimeMode(options.buildInfo.mode)) {
       throw Exception(
-        '${toTitleCase(options.buildInfo.friendlyModeName)} '
+        '${sentenceCase(options.buildInfo.friendlyModeName)} '
         'mode is not supported for ${device.name}.',
       );
     }
@@ -480,6 +491,10 @@ class AppDomain extends Domain {
         stayResident: true,
         urlTunneller: options.webEnableExposeUrl ? daemon.daemonDomain.exposeUrl : null,
         machine: machine,
+        usage: globals.flutterUsage,
+        systemClock: globals.systemClock,
+        logger: globals.logger,
+        fileSystem: globals.fs,
       );
     } else if (enableHotReload) {
       runner = HotRunner(
@@ -513,6 +528,7 @@ class AppDomain extends Domain {
         return runner.run(
           connectionInfoCompleter: connectionInfoCompleter,
           appStartedCompleter: appStartedCompleter,
+          enableDevTools: true,
           route: route,
         );
       },
@@ -527,7 +543,7 @@ class AppDomain extends Domain {
 
   Future<AppInstance> launch(
     ResidentRunner runner,
-    _RunOrAttach runOrAttach,
+    RunOrAttach runOrAttach,
     Device device,
     String projectDirectory,
     bool enableHotReload,
@@ -676,9 +692,16 @@ class AppDomain extends Domain {
     if (app == null) {
       throw "app '$appId' not found";
     }
-
-    final Map<String, dynamic> result = await app.runner
-        .invokeFlutterExtensionRpcRawOnFirstIsolate(methodName, params: params);
+    final FlutterDevice device = app.runner.flutterDevices.first;
+    final List<FlutterView> views = await device.vmService.getFlutterViews();
+    final Map<String, dynamic> result = await device
+      .vmService
+      .invokeFlutterExtensionRpcRaw(
+        methodName,
+        args: params,
+        isolateId: views
+          .first.uiIsolate.id
+      );
     if (result == null) {
       throw 'method not available: $methodName';
     }
@@ -1015,6 +1038,7 @@ class NotifyingLogger extends DelegatingLogger {
     @required Duration timeout,
     String progressId,
     bool multilineOutput = false,
+    bool includeTiming = true,
     int progressIndicatorPadding = kDefaultStatusPadding,
   }) {
     assert(timeout != null);
@@ -1070,7 +1094,7 @@ class AppInstance {
     _logger.close();
   }
 
-  Future<T> _runInZone<T>(AppDomain domain, FutureOr<T> method()) async {
+  Future<T> _runInZone<T>(AppDomain domain, FutureOr<T> Function() method) async {
     return method();
   }
 }
@@ -1098,6 +1122,7 @@ class EmulatorDomain extends Domain {
 
   Future<void> launch(Map<String, dynamic> args) async {
     final String emulatorId = _getStringArg(args, 'emulatorId', required: true);
+    final bool coldBoot = _getBoolArg(args, 'coldBoot') ?? false;
     final List<Emulator> matches =
         await emulators.getEmulatorsMatching(emulatorId);
     if (matches.isEmpty) {
@@ -1105,12 +1130,12 @@ class EmulatorDomain extends Domain {
     } else if (matches.length > 1) {
       throw "multiple emulators match '$emulatorId'";
     } else {
-      await matches.first.launch();
+      await matches.first.launch(coldBoot: coldBoot);
     }
   }
 
   Future<Map<String, dynamic>> create(Map<String, dynamic> args) async {
-    final String name = _getStringArg(args, 'name', required: false);
+    final String name = _getStringArg(args, 'name');
     final CreateEmulatorResult res = await emulators.createEmulator(name: name);
     return <String, dynamic>{
       'success': res.success,
@@ -1143,6 +1168,7 @@ class AppRunLogger extends DelegatingLogger {
     @required Duration timeout,
     String progressId,
     bool multilineOutput = false,
+    bool includeTiming = true,
     int progressIndicatorPadding = kDefaultStatusPadding,
   }) {
     final int id = _nextProgressId++;

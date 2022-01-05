@@ -48,6 +48,39 @@ void main() {
     GestureBinding.instance!.handleEvent(up90, HitTestEntry(MockHitTestTarget()));
     GestureBinding.instance!.handleEvent(up91, HitTestEntry(MockHitTestTarget()));
   });
+<<<<<<< HEAD
+=======
+
+  testWidgets('VerticalDragGestureRecognizer asserts when kind and supportedDevices are both set', (WidgetTester tester) async {
+    expect(
+      () {
+        VerticalDragGestureRecognizer(
+          kind: PointerDeviceKind.touch,
+          supportedDevices: <PointerDeviceKind>{ PointerDeviceKind.touch },
+        );
+      },
+      throwsA(
+        isA<AssertionError>().having((AssertionError error) => error.toString(),
+        'description', contains('kind == null || supportedDevices == null')),
+      ),
+    );
+  });
+
+  testWidgets('HorizontalDragGestureRecognizer asserts when kind and supportedDevices are both set', (WidgetTester tester) async {
+    expect(
+      () {
+        HorizontalDragGestureRecognizer(
+          kind: PointerDeviceKind.touch,
+          supportedDevices: <PointerDeviceKind>{ PointerDeviceKind.touch },
+        );
+      },
+      throwsA(
+        isA<AssertionError>().having((AssertionError error) => error.toString(),
+        'description', contains('kind == null || supportedDevices == null')),
+      ),
+    );
+  });
+>>>>>>> 77d935af4db863f6abd0b9c31c7e6df2a13de57b
 }
 
 class MockHitTestTarget implements HitTestTarget {

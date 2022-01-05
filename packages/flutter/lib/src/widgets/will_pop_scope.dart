@@ -23,63 +23,16 @@ import 'routes.dart';
 ///     onWillPop: () async {
 ///       return shouldPop;
 ///     },
-///     child: Text('WillPopScope sample'),
+///     child: const Text('WillPopScope sample'),
 ///   );
 /// }
 /// ```
 /// {@end-tool}
 ///
-/// {@tool dartpad --template=stateful_widget_material}
-/// ```dart
-/// bool shouldPop = true;
-/// @override
-/// Widget build(BuildContext context) {
-///   return WillPopScope(
-///     onWillPop: () async {
-///       return shouldPop;
-///     },
-///     child: Scaffold(
-///       appBar: AppBar(
-///         title: Text("Flutter WillPopScope demo"),
-///       ),
-///       body: Center(
-///         child: Column(
-///           mainAxisAlignment: MainAxisAlignment.center,
-///           children: [
-///             OutlinedButton(
-///               child: Text('Push'),
-///               onPressed: () {
-///                 Navigator.of(context).push(
-///                   MaterialPageRoute(
-///                     builder: (context) {
-///                       return MyStatefulWidget();
-///                     },
-///                   ),
-///                 );
-///               },
-///             ),
-///             OutlinedButton(
-///               child: Text('shouldPop: $shouldPop'),
-///               onPressed: () {
-///                 setState(
-///                   () {
-///                     shouldPop = !shouldPop;
-///                   },
-///                 );
-///               },
-///             ),
-///             Text("Push to a new screen, then tap on shouldPop "
-///                 "button to toggle its value. Press the back "
-///                 "button in the appBar to check its behaviour "
-///                 "for different values of shouldPop"),
-///           ],
-///         ),
-///       ),
-///     ),
-///   );
-/// }
-/// ```
+/// {@tool dartpad}
 ///
+///
+/// ** See code in examples/api/lib/widgets/will_pop_scope/will_pop_scope.1.dart **
 /// {@end-tool}
 ///
 /// See also:
@@ -113,7 +66,7 @@ class WillPopScope extends StatefulWidget {
   final WillPopCallback? onWillPop;
 
   @override
-  _WillPopScopeState createState() => _WillPopScopeState();
+  State<WillPopScope> createState() => _WillPopScopeState();
 }
 
 class _WillPopScopeState extends State<WillPopScope> {
